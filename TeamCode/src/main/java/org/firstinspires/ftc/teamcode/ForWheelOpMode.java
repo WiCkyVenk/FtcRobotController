@@ -18,8 +18,6 @@ import com.qualcomm.robotcore.util.Range;
  *   X -> Intake toggle (435 RPM on/off)
  *   Y -> Control motor cycle (Off -> 5 RPM -> 1000 RPM -> Off...)
  *   B -> Outtake toggle (5500 RPM on/off, reversed direction)
- *   D-Pad Up   -> Increase the currently active control stage's RPM by 20
- *   D-Pad Down -> Decrease the currently active control stage's RPM by 20
  */
 @TeleOp(name = "Maybe" + "Robot TeleOp", group = "TeleOp")
 public class ForWheelOpMode extends LinearOpMode {
@@ -52,20 +50,18 @@ public class ForWheelOpMode extends LinearOpMode {
 
     // Control: goBILDA 5203 19.2:1, 3-stage cycle (0 -> 5 RPM -> 1000 RPM -> 0)
     private static final double CONTROL_TICKS_PER_REV = 384.5;
-    private static final double CONTROL_RPM_STEP = 20; // amount to change per D-pad press
-
-    // Both stage RPMs are adjustable at runtime via D-pad up/down.
-    // D-pad affects whichever stage is currently active.
-    private double controlRpmStage1 = 5;
-    private double controlRpmStage2 = 1000;
-    private int controlStage = 0; // 0 = off, 1 = stage-1 RPM, 2 = stage-2 RPM
+    private static final double CONTROL_RPM_STAGE_1 = 5;
+    private static final double CONTROL_RPM_STAGE_2 = 1000;
+    private static final double CONTROL_TICKS_PER_SEC_STAGE_1 =
+            (CONTROL_RPM_STAGE_1 * CONTROL_TICKS_PER_REV) / 60.0;
+    private static final double CONTROL_TICKS_PER_SEC_STAGE_2 =
+            (CONTROL_RPM_STAGE_2 * CONTROL_TICKS_PER_REV) / 60.0;
+    private int controlStage = 0; // 0 = off, 1 = 5 RPM, 2 = 1000 RPM
     private boolean yPressedLast = false;
-    private boolean dpadUpPressedLast = false;
-    private boolean dpadDownPressedLast = false;
 
     // Outtake: goBILDA 5203 Yellow Jacket (no gearbox, 6000 RPM), target 5500 RPM
     private static final double OUTTAKE_TICKS_PER_REV = 28.0;
-    private static final double OUTTAKE_TARGET_RPM = 10;
+    private static final double OUTTAKE_TARGET_RPM = 2000;
     private static final double OUTTAKE_TICKS_PER_SEC =
             (OUTTAKE_TARGET_RPM * OUTTAKE_TICKS_PER_REV) / 60.0;
     private boolean outtakeOn = false;
@@ -173,38 +169,12 @@ public class ForWheelOpMode extends LinearOpMode {
             }
             yPressedLast = yPressed;
 
-            // ============= CONTROL RPM ADJUST (D-Pad Up/Down) =============
-            // Adjusts whichever stage is currently active.
-            boolean dpadUpPressed = gamepad1.dpad_up;
-            boolean dpadDownPressed = gamepad1.dpad_down;
-            double rpmDelta = 0;
-            if (dpadUpPressed && !dpadUpPressedLast) {
-                rpmDelta += CONTROL_RPM_STEP;
-            }
-            if (dpadDownPressed && !dpadDownPressedLast) {
-                rpmDelta -= CONTROL_RPM_STEP;
-            }
-            dpadUpPressedLast = dpadUpPressed;
-            dpadDownPressedLast = dpadDownPressed;
-
-            if (rpmDelta != 0) {
-                if (controlStage == 1) {
-                    controlRpmStage1 = Math.max(0, controlRpmStage1 + rpmDelta);
-                } else if (controlStage == 2) {
-                    controlRpmStage2 = Math.max(0, controlRpmStage2 + rpmDelta);
-                }
-                // If controlStage == 0 (off), D-pad does nothing since there's no active RPM to adjust.
-            }
-
-            double controlTicksPerSecStage1 = (controlRpmStage1 * CONTROL_TICKS_PER_REV) / 60.0;
-            double controlTicksPerSecStage2 = (controlRpmStage2 * CONTROL_TICKS_PER_REV) / 60.0;
-
             switch (controlStage) {
                 case 1:
-                    control_motor.setVelocity(controlTicksPerSecStage1);
+                    control_motor.setVelocity(CONTROL_TICKS_PER_SEC_STAGE_1);
                     break;
                 case 2:
-                    control_motor.setVelocity(controlTicksPerSecStage2);
+                    control_motor.setVelocity(CONTROL_TICKS_PER_SEC_STAGE_2);
                     break;
                 default:
                     control_motor.setVelocity(0);
@@ -229,8 +199,6 @@ public class ForWheelOpMode extends LinearOpMode {
             telemetry.addData("-- Mechanisms -----------", "");
             telemetry.addData("Intake On", intakeOn);
             telemetry.addData("Control Stage", controlStage);
-            telemetry.addData("Control Stage-1 RPM", "%.0f", controlRpmStage1);
-            telemetry.addData("Control Stage-2 RPM", "%.0f", controlRpmStage2);
             telemetry.addData("Outtake On", outtakeOn);
             telemetry.update();
         }
